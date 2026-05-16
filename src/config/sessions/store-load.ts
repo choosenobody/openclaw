@@ -9,6 +9,7 @@ import {
   setSerializedSessionStore,
   writeSessionStoreCache,
 } from "./store-cache.js";
+import { normalizePersistedSessionEntryShape } from "./store-entry-shape.js";
 import { collectSessionMaintenancePreserveKeys } from "./store-maintenance-preserve.js";
 import { resolveMaintenanceConfig } from "./store-maintenance-runtime.js";
 import {
@@ -30,10 +31,6 @@ export type LoadSessionStoreOptions = {
 const log = createSubsystemLogger("sessions/store");
 
 function isSessionStoreRecord(value: unknown): value is Record<string, SessionEntry> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function isSessionEntryRecord(value: unknown): value is SessionEntry {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -88,13 +85,14 @@ function stripPersistedSkillsCache(entry: SessionEntry): SessionEntry {
 export function normalizeSessionStore(store: Record<string, SessionEntry>): boolean {
   let changed = false;
   for (const [key, entry] of Object.entries(store)) {
-    if (!isSessionEntryRecord(entry)) {
+    const shaped = normalizePersistedSessionEntryShape(entry);
+    if (!shaped) {
       delete store[key];
       changed = true;
       continue;
     }
     const normalized = stripPersistedSkillsCache(
-      normalizeSessionEntryDelivery(normalizeSessionRuntimeModelFields(entry)),
+      normalizeSessionEntryDelivery(normalizeSessionRuntimeModelFields(shaped)),
     );
     if (normalized !== entry) {
       store[key] = normalized;
